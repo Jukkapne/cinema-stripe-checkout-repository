@@ -13,9 +13,32 @@ function BookingStatusPage({ page }) {
   useEffect(() => {
     if (!bookingId) return;
 
-    // The success page only reads state. It never announces a payment itself.
-    getBooking(bookingId).then(setBooking).catch((reason) => setError(reason.message));
-  }, [bookingId]);
+    let timeoutId;
+    let isDisposed = false;
+
+    async function refreshBookingStatus() {
+      try {
+        // The success page only reads state. It never declares a payment paid.
+        const latestBooking = await getBooking(bookingId);
+        if (isDisposed) return;
+        setBooking(latestBooking);
+
+        // Browser redirection can beat webhook delivery. Poll only while the
+        // server is still waiting for Stripe's verified event.
+        if (page === 'success' && latestBooking.status === 'pending_payment') {
+          timeoutId = window.setTimeout(refreshBookingStatus, 2000);
+        }
+      } catch (reason) {
+        if (!isDisposed) setError(reason.message);
+      }
+    }
+
+    refreshBookingStatus();
+    return () => {
+      isDisposed = true;
+      window.clearTimeout(timeoutId);
+    };
+  }, [bookingId, page]);
 
   const heading = page === 'success' ? 'Thank you — checking your booking' : 'Checkout cancelled';
   return <main className="card status-page">
@@ -24,6 +47,7 @@ function BookingStatusPage({ page }) {
     {page === 'success' && <p>Payment confirmation is received securely by the server through a Stripe webhook.</p>}
     {page === 'cancel' && <p>Your seats are held temporarily. They will be released if payment is not completed before the hold expires.</p>}
     {booking && <p className="status">Booking status: <strong>{booking.status}</strong> · Seats: {booking.seatIds.join(', ')}</p>}
+    {booking?.status === 'pending_payment' && page === 'success' && <p className="hint">Waiting for the verified Stripe webhook; this page checks again automatically.</p>}
     {error && <p className="error">{error}</p>}
     <a className="button-link" href="/">Back to screenings</a>
   </main>;
