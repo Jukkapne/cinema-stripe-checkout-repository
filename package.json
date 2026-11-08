@@ -1,0 +1,25 @@
+{
+  "name": "cinema-stripe-checkout-example",
+  "private": true,
+  "version": "1.0.0",
+  "description": "Commented React + Express Stripe test-mode cinema booking example",
+  "scripts": {
+    "dev:client": "vite --config client/vite.config.js",
+    "dev:server": "node --watch server/server.js",
+    "start:server": "node server/server.js",
+    "build": "vite build --config client/vite.config.js",
+    "preview": "vite preview --config client/vite.config.js"
+  },
+  "dependencies": {
+    "cors": "^2.8.5",
+    "dotenv": "^16.4.7",
+    "express": "^4.21.2",
+    "react": "^19.0.0",
+    "react-dom": "^19.0.0",
+    "stripe": "^18.0.0"
+  },
+  "devDependencies": {
+    "@vitejs/plugin-react": "^4.4.1",
+    "vite": "^6.0.0"
+  }
+}
