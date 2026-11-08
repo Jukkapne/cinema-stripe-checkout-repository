@@ -31,15 +31,17 @@ npm run dev:server
 # Vite client, http://localhost:5173
 npm run dev:client
 
-# local webhook forwarding; copy its whsec_ value to server/.env and restart API
-stripe listen --forward-to localhost:4242/api/stripe/webhook --events checkout.session.completed,checkout.session.async_payment_succeeded,checkout.session.expired
+# local webhook forwarding; leave this window open while making a new payment
+stripe listen --forward-to localhost:4242/api/stripe/webhook --all-snapshot
 ```
 
-Before running `stripe listen`, install the Stripe CLI according to Stripe’s current instructions and run `stripe login`. When it asks for the environment, choose **Sandbox** and use the same Sandbox as the copied `sk_test_...` key. The command prints a signing secret beginning with `whsec_`. Copy it to `STRIPE_WEBHOOK_SECRET` in `server/.env`.
+Before running `stripe listen`, install the Stripe CLI according to Stripe’s current instructions and run `stripe login`. When it asks for the environment, choose **Sandbox** and use the same Sandbox as the copied `sk_test_...` key. The listener first prints `Ready!` and a signing secret beginning with `whsec_`. On the first local setup, copy it to `STRIPE_WEBHOOK_SECRET` in `server/.env`.
 
-> **Restart required:** stop the API with `Ctrl+C` and run `npm run dev:server` again after editing `.env`. Node does not reliably reload environment-file changes while it is running.
+> **Restart required:** stop the API with `Ctrl+C` and run `npm run dev:server` again after editing `.env`. Node does not reliably reload environment-file changes while it is running. The CLI signing secret normally stays the same across listener restarts, so restarting `stripe listen` alone does not normally require editing `.env` or restarting the API.
 
 `STRIPE_SECRET_KEY` and `STRIPE_WEBHOOK_SECRET` are different values: the `sk_test_` key authenticates server-to-Stripe API calls, while the `whsec_` key verifies webhook signatures sent to this local endpoint.
+
+After the `Ready!` message, the listener is supposed to wait silently. It displays events only for payments created **after** it started. Keep it open and then complete a new Checkout payment.
 
 For a successful test checkout, use Stripe's test card `4242 4242 4242 4242`, a future expiry date, any CVC, and any postal code.
 
@@ -52,8 +54,9 @@ After completing the test card payment, verify all three places:
 | Browser | The success page eventually shows `Booking status: paid`. It polls while webhook delivery is pending. |
 | Stripe CLI | A `checkout.session.completed` event is forwarded and receives HTTP `200`. |
 | API terminal | `Booking ... is paid.` is printed. |
+| Stripe Dashboard | The test payment appears in the selected Sandbox. Dashboard time can be UTC, and customer details can arrive with a brief delay. |
 
-If the browser remains in `pending_payment`, inspect the Stripe CLI first. A `400` response usually means the `whsec_...` secret differs from the currently running `stripe listen` session; a connection error means the API is not listening at port 4242.
+If the browser remains in `pending_payment`, inspect the Stripe CLI first. A `400` response means the API rejected the webhook (often an incorrect `whsec_...` value); a connection error means the API is not listening at port 4242. If the listener stays silent after `Ready!`, make a new payment after starting it.
 
 The Cancel button does not immediately release the seats in this teaching example. They remain held until the Checkout Session expires; implementing a visible hold timer and reliable release workflow is a later exercise.
 
